@@ -16,6 +16,12 @@ pub enum Command {
     Tweet(String),
     #[command(description = "Like a tweet by providing the tweet URL")]
     Like(String),
+    #[command(description = "Retweet a tweet by providing the tweet URL")]
+    Retweet(String),
+    #[command(description = "Reply to a tweet by providing the tweet URL and the reply text")]
+    Reply(String),
+    #[command(description = "Quote a tweet by providing the tweet URL and the tweet text")]
+    Quote(String),
 }
 
 pub async fn command_handler(
@@ -103,6 +109,93 @@ pub async fn command_handler(
             .await
             .expect("Failed to like tweet");
             bot.send_message(msg.chat.id, "Tweet liked").await?;
+        }
+        Command::Retweet(tweet_url) => {
+            let db = shared_state.db.lock().await;
+            let user = db
+                .access_tokens
+                .get(&msg.chat.id.to_string())
+                .map(|u| u.clone());
+            drop(db);
+            if user.is_none() {
+                bot.send_message(msg.chat.id, "Please /authenticate first")
+                    .await?;
+                return Ok(());
+            }
+            let user = user.unwrap();
+            let tweet_id = tweet_url
+                .rsplit('/')
+                .next()
+                .expect("Failed to extract tweet_id from tweet_url");
+            let _ = twitter::retweet(
+                user.access_token,
+                user.access_secret,
+                user.x_id,
+                tweet_id.to_string(),
+            )
+            .await
+            .expect("Failed to retweet tweet");
+            bot.send_message(msg.chat.id, "Tweet retweeted").await?;
+        }
+        Command::Reply(text) => {
+            let (tweet_url, reply_text) = text.split_once(' ').expect("Invalid reply command");
+            let db = shared_state.db.lock().await;
+            let user = db
+                .access_tokens
+                .get(&msg.chat.id.to_string())
+                .map(|u| u.clone());
+            drop(db);
+            if user.is_none() {
+                bot.send_message(msg.chat.id, "Please /authenticate first")
+                    .await?;
+                return Ok(());
+            }
+            let user = user.unwrap();
+            let tweet_id = tweet_url
+                .rsplit('/')
+                .next()
+                .expect("Failed to extract tweet_id from tweet_url");
+            let id = twitter::reply(
+                user.access_token,
+                user.access_secret,
+                reply_text.to_string(),
+                tweet_id.to_string(),
+            )
+            .await
+            .expect("Failed to reply to tweet");
+            let url = format!("https://x.com/{}/status/{}", user.username, id);
+            bot.send_message(msg.chat.id, format!("Reply sent: {}", url))
+                .await?;
+        }
+        Command::Quote(text) => {
+            let (tweet_url, tweet) = text.split_once(' ').expect("Invalid quote command");
+            let db = shared_state.db.lock().await;
+            let user = db
+                .access_tokens
+                .get(&msg.chat.id.to_string())
+                .map(|u| u.clone());
+            drop(db);
+            if user.is_none() {
+                bot.send_message(msg.chat.id, "Please /authenticate first")
+                    .await?;
+                return Ok(());
+            }
+            let user = user.unwrap();
+            let tweet_id = tweet_url
+                .rsplit('/')
+                .next()
+                .expect("Failed to extract tweet_id from tweet_url");
+            let id = twitter::quote_tweet(
+                user.access_token,
+                user.access_secret,
+                tweet.to_string(),
+                tweet_id.to_string(),
+            )
+            .await
+            .expect("Failed to quote tweet");
+            let url = format!("https://x.com/{}/status/{}", user.username, id);
+            bot.send_message(msg.chat.id, format!("Quote tweet sent: {}", url))
+                .await?;
         }
     };
 

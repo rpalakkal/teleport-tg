@@ -14,8 +14,16 @@ struct SendTweetResponse {
 }
 
 #[derive(Debug, Serialize)]
+struct Reply {
+    in_reply_to_tweet_id: String,
+}
+
+#[serde_with::skip_serializing_none]
+#[derive(Debug, Serialize)]
 struct Tweet {
     text: String,
+    quote_tweet_id: Option<String>,
+    reply: Option<Reply>,
 }
 
 #[derive(Debug, Serialize)]
@@ -99,7 +107,11 @@ pub async fn send_tweet(
     let app_secret = std::env::var("TWITTER_CONSUMER_SECRET")?;
     let secrets =
         reqwest_oauth1::Secrets::new(app_key, app_secret).token(access_token, access_secret);
-    let body = serde_json::to_string(&Tweet { text: tweet })?;
+    let body = serde_json::to_string(&Tweet {
+        text: tweet,
+        quote_tweet_id: None,
+        reply: None,
+    })?;
     let client = reqwest::Client::new();
     let resp = client
         .oauth1(secrets)
@@ -129,7 +141,88 @@ pub async fn like_tweet(
         .oauth1(secrets)
         .post(format!("https://api.twitter.com/2/users/{}/likes", x_id))
         .header(reqwest::header::CONTENT_TYPE, "application/json")
-        .body(serde_json::to_string(&&LikeTweet { tweet_id })?)
+        .body(serde_json::to_string(&LikeTweet { tweet_id })?)
+        .send()
+        .await?;
+    Ok(())
+}
+
+pub async fn quote_tweet(
+    access_token: String,
+    access_secret: String,
+    tweet: String,
+    quote_tweet_id: String,
+) -> eyre::Result<String> {
+    let app_key = std::env::var("TWITTER_CONSUMER_KEY")?;
+    let app_secret = std::env::var("TWITTER_CONSUMER_SECRET")?;
+    let secrets =
+        reqwest_oauth1::Secrets::new(app_key, app_secret).token(access_token, access_secret);
+    let body = serde_json::to_string(&Tweet {
+        text: tweet,
+        quote_tweet_id: Some(quote_tweet_id),
+        reply: None,
+    })?;
+    let client = reqwest::Client::new();
+    let resp = client
+        .oauth1(secrets)
+        .post("https://api.twitter.com/2/tweets".to_string())
+        .header(reqwest::header::CONTENT_TYPE, "application/json")
+        .body(body)
+        .send()
+        .await?;
+
+    let tweet_response: SendTweetResponse = resp.json().await?;
+    log::info!("Tweet response: {:?}", tweet_response);
+    Ok(tweet_response.data.id)
+}
+
+pub async fn reply(
+    access_token: String,
+    access_secret: String,
+    tweet: String,
+    reply_tweet_id: String,
+) -> eyre::Result<String> {
+    let app_key = std::env::var("TWITTER_CONSUMER_KEY")?;
+    let app_secret = std::env::var("TWITTER_CONSUMER_SECRET")?;
+    let secrets =
+        reqwest_oauth1::Secrets::new(app_key, app_secret).token(access_token, access_secret);
+    let body = serde_json::to_string(&Tweet {
+        text: tweet,
+        quote_tweet_id: None,
+        reply: Some(Reply {
+            in_reply_to_tweet_id: reply_tweet_id,
+        }),
+    })?;
+    let client = reqwest::Client::new();
+    let resp = client
+        .oauth1(secrets)
+        .post("https://api.twitter.com/2/tweets".to_string())
+        .header(reqwest::header::CONTENT_TYPE, "application/json")
+        .body(body)
+        .send()
+        .await?;
+
+    let tweet_response: SendTweetResponse = resp.json().await?;
+    log::info!("Tweet response: {:?}", tweet_response);
+    Ok(tweet_response.data.id)
+}
+
+pub async fn retweet(
+    access_token: String,
+    access_secret: String,
+    x_id: String,
+    tweet_id: String,
+) -> eyre::Result<()> {
+    let app_key = std::env::var("TWITTER_CONSUMER_KEY")?;
+    let app_secret = std::env::var("TWITTER_CONSUMER_SECRET")?;
+    let secrets =
+        reqwest_oauth1::Secrets::new(app_key, app_secret).token(access_token, access_secret);
+    let client = reqwest::Client::new();
+    let _ = client
+        .oauth1(secrets)
+        .post(format!("https://api.twitter.com/2/users/{}/retweets", x_id))
+        .header(reqwest::header::CONTENT_TYPE, "application/json")
+        .body(serde_json::to_string(&LikeTweet { tweet_id })?)
         .send()
         .await?;
     Ok(())
@@ -139,7 +232,7 @@ pub async fn request_oauth_token(chat_id: String) -> eyre::Result<(String, Strin
     let app_key = std::env::var("TWITTER_CONSUMER_KEY").expect("TWITTER_CONSUMER_KEY not set");
     let app_secret =
         std::env::var("TWITTER_CONSUMER_SECRET").expect("TWITTER_CONSUMER_SECRET not set");
-    let callback_url = format!("https://0.0.0.0:3000/callback?chat_id={}", chat_id);
+    let callback_url = format!("http://0.0.0.0:3000/callback?chat_id={}", chat_id);
     let secrets = reqwest_oauth1::Secrets::new(app_key, app_secret);
     let query = RequestTokenRequestQuery {
         oauth_callback: callback_url.to_string(),
