@@ -125,14 +125,13 @@ pub async fn like_tweet(
     let secrets =
         reqwest_oauth1::Secrets::new(app_key, app_secret).token(access_token, access_secret);
     let client = reqwest::Client::new();
-    let resp = client
+    let _ = client
         .oauth1(secrets)
         .post(format!("https://api.twitter.com/2/users/{}/likes", x_id))
         .header(reqwest::header::CONTENT_TYPE, "application/json")
         .body(serde_json::to_string(&&LikeTweet { tweet_id })?)
         .send()
         .await?;
-    log::info!("Like response: {:?}", resp);
     Ok(())
 }
 

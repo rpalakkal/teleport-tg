@@ -3,11 +3,18 @@ use teloxide::{prelude::*, utils::command::BotCommands};
 use crate::{endpoints::SharedState, twitter};
 
 #[derive(BotCommands, Clone)]
-#[command(rename_rule = "lowercase")]
+#[command(
+    rename_rule = "lowercase",
+    description = "Teleport Telegram Bot commands:"
+)]
 pub enum Command {
+    #[command(description = "Show this help message")]
     Help,
+    #[command(description = "Authenticate a chat with Twitter")]
     Authenticate,
+    #[command(description = "Post a tweet by providing the tweet text")]
     Tweet(String),
+    #[command(description = "Like a tweet by providing the tweet URL")]
     Like(String),
 }
 
@@ -27,9 +34,14 @@ pub async fn command_handler(
             let user = db
                 .access_tokens
                 .get(&msg.chat.id.to_string())
-                .expect("Failed to find access_token in database")
-                .clone();
+                .map(|u| u.clone());
             drop(db);
+            if user.is_none() {
+                bot.send_message(msg.chat.id, "Please /authenticate first")
+                    .await?;
+                return Ok(());
+            }
+            let user = user.unwrap();
             let id = twitter::send_tweet(user.access_token, user.access_secret, tweet)
                 .await
                 .expect("Failed to send tweet");
@@ -70,9 +82,14 @@ pub async fn command_handler(
             let user = db
                 .access_tokens
                 .get(&msg.chat.id.to_string())
-                .expect("Failed to find access_token in database")
-                .clone();
+                .map(|u| u.clone());
             drop(db);
+            if user.is_none() {
+                bot.send_message(msg.chat.id, "Please /authenticate first")
+                    .await?;
+                return Ok(());
+            }
+            let user = user.unwrap();
             let tweet_id = tweet_url
                 .rsplit('/')
                 .next()
