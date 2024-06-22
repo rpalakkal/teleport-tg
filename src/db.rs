@@ -2,12 +2,13 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+use crate::twitter::auth::TwitterTokenPair;
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct User {
     pub x_id: String,
     pub username: String,
-    pub access_token: String,
-    pub access_secret: String,
+    pub token_pair: TwitterTokenPair,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]

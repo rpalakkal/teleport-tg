@@ -7,7 +7,7 @@ use tokio::sync::Mutex;
 
 use crate::{
     db::{InMemoryDB, User},
-    twitter::{authorize_token, get_user_x_info},
+    twitter::{auth::authorize_token, builder::TwitterBuilder},
 };
 
 #[derive(Deserialize)]
@@ -21,6 +21,7 @@ pub struct CallbackQuery {
 pub struct SharedState {
     pub db: Arc<Mutex<InMemoryDB>>,
     pub bot: Bot,
+    pub twitter: TwitterBuilder,
 }
 
 pub async fn callback(
@@ -37,16 +38,19 @@ pub async fn callback(
         .remove(&oauth_token)
         .expect("Failed to find oauth_access_secret in database");
 
-    let (access_token, access_secret) =
-        authorize_token(oauth_token, oauth_access_secret, oauth_verifier)
-            .await
-            .unwrap();
-    let x_info = get_user_x_info(access_token.clone(), access_secret.clone()).await;
+    let token_pair = authorize_token(oauth_token, oauth_access_secret, oauth_verifier)
+        .await
+        .unwrap();
+    let x_info = shared_state
+        .twitter
+        .with_auth(token_pair.clone())
+        .get_user_info()
+        .await
+        .unwrap();
     let user = User {
         x_id: x_info.id.clone(),
         username: x_info.username.clone(),
-        access_token,
-        access_secret,
+        token_pair,
     };
     let user_profile_url = format!("https://x.com/{}", x_info.username);
     let msg = format!(
