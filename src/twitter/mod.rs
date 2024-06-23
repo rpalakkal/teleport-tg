@@ -3,6 +3,7 @@ pub mod builder;
 pub mod info;
 pub mod post;
 pub mod react;
+pub mod tweet;
 
 // #[cfg(test)]
 // mod tests {

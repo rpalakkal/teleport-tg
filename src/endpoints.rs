@@ -22,6 +22,7 @@ pub struct SharedState {
     pub db: Arc<Mutex<InMemoryDB>>,
     pub bot: Bot,
     pub twitter: TwitterBuilder,
+    pub bot_name: String,
 }
 
 pub async fn callback(

@@ -8,7 +8,7 @@ struct LikeTweet {
 }
 
 impl TwitterClient<'_> {
-    pub async fn like_tweet(&self, x_id: String, tweet_id: String) -> eyre::Result<()> {
+    pub async fn like(&self, x_id: String, tweet_id: String) -> eyre::Result<()> {
         let _ = self
             .client
             .post(format!("https://api.twitter.com/2/users/{}/likes", x_id))
