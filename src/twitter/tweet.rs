@@ -11,7 +11,7 @@ struct Media {
 }
 
 #[serde_with::skip_serializing_none]
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Default)]
 pub struct Tweet {
     text: String,
     quote_tweet_id: Option<String>,
@@ -55,19 +55,4 @@ impl Tweet {
     pub fn set_media_ids(&mut self, media_ids: Vec<String>) {
         self.media = Some(Media { media_ids });
     }
-
-    // pub fn use_media_ids(mut self, media_ids: Vec<String>) -> Self {
-    //     self.set_media_ids(media_ids);
-    //     self
-    // }
-
-    // pub fn use_quote_tweet_id(mut self, quote_tweet_id: String) -> Self {
-    //     self.set_quote_tweet_id(quote_tweet_id);
-    //     self
-    // }
-
-    // pub fn use_reply_tweet_id(mut self, reply_tweet_id: String) -> Self {
-    //     self.set_reply_tweet_id(reply_tweet_id);
-    //     self
-    // }
 }
