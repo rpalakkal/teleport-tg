@@ -43,9 +43,12 @@ async fn main() {
     let app_key = std::env::var("TWITTER_CONSUMER_KEY").expect("TWITTER_CONSUMER_KEY not set");
     let app_secret =
         std::env::var("TWITTER_CONSUMER_SECRET").expect("TWITTER_CONSUMER_SECRET not set");
+    let db_path = std::env::var("DB_PATH").expect("DB_PATH not set");
+
+    let db = InMemoryDB::load_or_create(&db_path);
 
     let shared_state = SharedState {
-        db: Arc::new(Mutex::new(InMemoryDB::default())),
+        db: Arc::new(Mutex::new(db)),
         bot: bot.clone(),
         bot_name,
         twitter: TwitterBuilder::new(app_key, app_secret),
@@ -113,9 +116,18 @@ async fn main() {
         );
 
     Dispatcher::builder(bot, handler)
-        .dependencies(dptree::deps![shared_state])
+        .dependencies(dptree::deps![shared_state.clone()])
         .enable_ctrlc_handler()
         .build()
         .dispatch()
         .await;
+
+    shared_state
+        .db
+        .lock()
+        .await
+        .save(&db_path)
+        .expect("Failed to save db");
+
+    log::info!("Saved db to {}", db_path);
 }

@@ -28,6 +28,17 @@ fn build_twitter_command_message(cmd: TwitterCommand, url: String) -> String {
     }
 }
 
+fn extract_tweet_id(tweet_url: &str) -> eyre::Result<String> {
+    let tweet_id = tweet_url
+        .rsplit('/')
+        .next()
+        .ok_or_eyre("Failed to extract tweet_id from tweet_url")?
+        .split('?')
+        .next()
+        .ok_or_eyre("Failed to extract tweet_id from tweet_url")?;
+    Ok(tweet_id.to_string())
+}
+
 fn build_raw_tweet(
     cmd: TwitterCommand,
     raw_text: String,
@@ -39,10 +50,7 @@ fn build_raw_tweet(
             let (tweet_url, tweet_text) = raw_text
                 .split_once(' ')
                 .ok_or_eyre("Invalid quote command")?;
-            let tweet_id = tweet_url
-                .rsplit('/')
-                .next()
-                .ok_or_eyre("Failed to extract tweet_id from tweet_url")?;
+            let tweet_id = extract_tweet_id(tweet_url)?;
             (tweet_text.to_string(), tweet_id.to_string())
         }
         _ => eyre::bail!("Invalid command for build_raw_tweet"),
@@ -84,10 +92,7 @@ pub async fn twitter_command_handler(
     let client = shared_state.twitter.with_auth(user.token_pair);
     let id = match cmd.clone() {
         TwitterCommand::Like(tweet_url) | TwitterCommand::Retweet(tweet_url) => {
-            let tweet_id = tweet_url
-                .rsplit('/')
-                .next()
-                .ok_or_eyre("Failed to extract tweet_id from tweet_url")?;
+            let tweet_id = extract_tweet_id(&tweet_url)?;
             let _ = if let TwitterCommand::Like(_) = cmd {
                 client.like(user.x_id, tweet_id.to_string()).await?
             } else {
