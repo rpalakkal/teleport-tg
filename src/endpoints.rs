@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use axum::extract::{Query, State};
+use eyre::OptionExt;
 use serde::Deserialize;
 use teloxide::{prelude::Requester, types::ChatId, Bot};
 use tokio::sync::Mutex;
@@ -25,10 +26,10 @@ pub struct SharedState {
     pub bot_name: String,
 }
 
-pub async fn callback(
-    State(shared_state): State<SharedState>,
-    Query(query): Query<CallbackQuery>,
-) -> &'static str {
+pub async fn complete_auth_flow(
+    shared_state: SharedState,
+    query: CallbackQuery,
+) -> eyre::Result<()> {
     let oauth_token = query.oauth_token;
     let oauth_verifier = query.oauth_verifier;
     let chat_id = query.chat_id;
@@ -37,17 +38,14 @@ pub async fn callback(
     let oauth_access_secret = db
         .oauth_tokens
         .remove(&oauth_token)
-        .expect("Failed to find oauth_access_secret in database");
+        .ok_or_eyre("Failed to find oauth_access_secret in database")?;
 
-    let token_pair = authorize_token(oauth_token, oauth_access_secret, oauth_verifier)
-        .await
-        .unwrap();
+    let token_pair = authorize_token(oauth_token, oauth_access_secret, oauth_verifier).await?;
     let x_info = shared_state
         .twitter
         .with_auth(token_pair.clone())
         .get_user_info()
-        .await
-        .unwrap();
+        .await?;
     let user = User {
         x_id: x_info.id.clone(),
         username: x_info.username.clone(),
@@ -61,12 +59,21 @@ pub async fn callback(
     log::info!("{}", msg);
     let tg_chat_id = chat_id.parse::<i64>().unwrap();
     let tg_chat_id = ChatId(tg_chat_id);
-    shared_state
-        .bot
-        .send_message(tg_chat_id, msg)
-        .await
-        .unwrap();
+    shared_state.bot.send_message(tg_chat_id, msg).await?;
     db.access_tokens.insert(chat_id, user);
     drop(db);
-    "Success"
+    Ok(())
+}
+
+pub async fn callback(
+    State(shared_state): State<SharedState>,
+    Query(query): Query<CallbackQuery>,
+) -> &'static str {
+    match complete_auth_flow(shared_state, query).await {
+        Ok(_) => "Success",
+        Err(e) => {
+            log::error!("{:?}", e);
+            "Failed"
+        }
+    }
 }

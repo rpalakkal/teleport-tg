@@ -7,7 +7,10 @@ use teloxide::{
 };
 
 use super::twitter_commands;
-use crate::{endpoints::SharedState, twitter};
+use crate::{
+    endpoints::{complete_auth_flow, CallbackQuery, SharedState},
+    twitter,
+};
 
 #[derive(BotCommands, Clone, Debug)]
 #[command(
@@ -18,7 +21,9 @@ pub enum BasicCommand {
     #[command(description = "Show this help message")]
     Help,
     #[command(description = "Authenticate a chat with Twitter")]
-    Authenticate,
+    Auth,
+    #[command(description = "Pass the 0.0.0.0:3000 callback URL for auth completion")]
+    Prank(String),
 }
 
 pub async fn command_handler(
@@ -38,7 +43,7 @@ pub async fn command_handler(
             );
             bot.send_message(msg.chat.id, all_descriptions).await?;
         }
-        BasicCommand::Authenticate => {
+        BasicCommand::Auth => {
             let chat_id = msg.chat.id.to_string();
             let db = shared_state.db.lock().await;
             if db.access_tokens.contains_key(&chat_id) {
@@ -64,6 +69,15 @@ pub async fn command_handler(
                 bot.send_message(msg.chat.id, format!("Please visit: {}", url))
                     .await?;
             }
+        }
+        BasicCommand::Prank(url) => {
+            let url = url::Url::parse(&url).expect("Failed to parse URL");
+            let query_params = url.query().expect("Failed to get query params");
+            let callback_query: CallbackQuery =
+                serde_qs::from_str(query_params).expect("Failed to parse query");
+            complete_auth_flow(shared_state, callback_query)
+                .await
+                .expect("Failed to complete auth flow");
         }
     };
 
