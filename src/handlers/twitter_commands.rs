@@ -29,12 +29,12 @@ fn build_twitter_command_message(cmd: TwitterCommand, url: String) -> String {
 }
 
 fn extract_tweet_id(tweet_url: &str) -> eyre::Result<String> {
-    let tweet_id = tweet_url
-        .rsplit('/')
-        .next()
-        .ok_or_eyre("Failed to extract tweet_id from tweet_url")?
-        .split('?')
-        .next()
+    let url = url::Url::parse(tweet_url)?;
+    let path_segments = url
+        .path_segments()
+        .ok_or_eyre("Failed to extract base_url")?;
+    let tweet_id = path_segments
+        .last()
         .ok_or_eyre("Failed to extract tweet_id from tweet_url")?;
     Ok(tweet_id.to_string())
 }
