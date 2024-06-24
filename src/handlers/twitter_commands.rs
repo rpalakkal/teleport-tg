@@ -84,8 +84,7 @@ pub async fn twitter_command_handler(
         .map(|u| u.clone());
     drop(db);
     if user.is_none() {
-        bot.send_message(chat_id, "Please /authenticate first")
-            .await?;
+        bot.send_message(chat_id, "Please /auth first").await?;
         return Ok(());
     }
     let user = user.unwrap();

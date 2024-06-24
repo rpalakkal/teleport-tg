@@ -20,6 +20,10 @@ use crate::{
 pub enum BasicCommand {
     #[command(description = "Show this help message")]
     Help,
+    #[command(description = "Get the current logged in user")]
+    Account,
+    #[command(description = "Remove the authenticated Twitter account from the chat")]
+    Logout,
     #[command(description = "Authenticate a chat with Twitter")]
     Auth,
     #[command(description = "Pass the 0.0.0.0:3000 callback URL for auth completion")]
@@ -78,6 +82,29 @@ pub async fn command_handler(
             complete_auth_flow(shared_state, callback_query)
                 .await
                 .expect("Failed to complete auth flow");
+        }
+        BasicCommand::Logout => {
+            let chat_id = msg.chat.id.to_string();
+            let mut db = shared_state.db.lock().await;
+            db.access_tokens.remove(&chat_id);
+            drop(db);
+            bot.send_message(msg.chat.id, "Successfully logged out")
+                .await?;
+        }
+        BasicCommand::Account => {
+            let chat_id = msg.chat.id.to_string();
+            let db = shared_state.db.lock().await;
+            let user = db.access_tokens.get(&chat_id).map(|u| u.clone());
+            drop(db);
+            if user.is_none() {
+                bot.send_message(msg.chat.id, "No Twitter account is currently logged in.")
+                    .await?;
+                return Ok(());
+            }
+            let user = user.unwrap();
+            let user_profile_url = format!("https://x.com/{}", user.username);
+            let to_send = format!("You are authenticated as: {}", user_profile_url);
+            bot.send_message(msg.chat.id, to_send).await?;
         }
     };
 
