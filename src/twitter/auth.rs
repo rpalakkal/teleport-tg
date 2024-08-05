@@ -28,7 +28,8 @@ pub async fn request_oauth_token(chat_id: String) -> eyre::Result<TwitterTokenPa
     let app_key = std::env::var("TWITTER_CONSUMER_KEY").expect("TWITTER_CONSUMER_KEY not set");
     let app_secret =
         std::env::var("TWITTER_CONSUMER_SECRET").expect("TWITTER_CONSUMER_SECRET not set");
-    let callback_url = format!("http://0.0.0.0:3000/callback?chat_id={}", chat_id);
+    let callback_url = std::env::var("CALLBACK_URL").expect("CALLBACK_URL not set");
+    let callback_url = format!("{}/callback?chat_id={}", callback_url, chat_id);
     let secrets = reqwest_oauth1::Secrets::new(app_key, app_secret);
     let query = RequestTokenRequestQuery {
         oauth_callback: callback_url.to_string(),
