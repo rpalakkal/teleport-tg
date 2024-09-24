@@ -36,8 +36,10 @@ impl Tweet {
         if self.quote_tweet_id.is_some() && self.reply.is_some() {
             eyre::bail!("Tweet cannot be both a quote and a reply");
         }
-        if self.media.is_some() && self.media.as_ref().unwrap().media_ids.is_empty() {
-            eyre::bail!("Media IDs cannot be empty");
+        if let Some(media) = &self.media {
+            if media.media_ids.is_empty() {
+                eyre::bail!("Media IDs cannot be empty");
+            }
         }
         Ok(())
     }

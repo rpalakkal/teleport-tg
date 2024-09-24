@@ -3,3 +3,4 @@ Cargo.lock
 .env
 db.bin
 tokens.json
+temp

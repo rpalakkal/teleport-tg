@@ -32,9 +32,18 @@ impl TwitterClient<'_> {
             .send()
             .await?;
 
-        let tweet_response: SendTweetResponse = resp.json().await?;
-        log::info!("Tweet response: {:?}", tweet_response);
-        Ok(tweet_response.data.id)
+        let body = resp.text().await?;
+        let tweet_response: Result<SendTweetResponse, _> = serde_json::from_str(&body);
+        match tweet_response {
+            Ok(response) => {
+                log::info!("Tweet response: {:?}", response);
+                Ok(response.data.id)
+            }
+            Err(e) => {
+                log::error!("Failed to decode tweet response: {:?}, body: {}", e, body);
+                Err(eyre::eyre!("Failed to decode tweet response"))
+            }
+        }
     }
 
     pub async fn upload_media(&self, media_bytes: Vec<u8>) -> eyre::Result<String> {
